@@ -24,6 +24,8 @@
 /*Priority for sensor interrupts*/
 #define MOSE_IRQ_PRIORITY		7
 
+#define DEFAULT_PRESSURE_REF_HPA    (0x3F7)     /* Default atmospheric pressure to compensate for (hPa) */
+
 TaskHandle_t env_sensors_task_handle = NULL;
 TaskHandle_t env_note_handle = NULL;
 SemaphoreHandle_t i2c_mutex = NULL;
@@ -66,6 +68,7 @@ void env_sensors_task(void *param)
     uint16_t serial_number[3];
     int16_t error = 0;
     static _Bool sensor_read = false;
+    uint16_t co2_ppm = 0;
 
     /*Initialize Sensor Fusion Board Interrupt*/
     result = cyhal_gpio_init(ARDU_IO2, CYHAL_GPIO_DIR_INPUT, CYHAL_GPIO_DRIVE_NONE, false);
@@ -111,11 +114,17 @@ void env_sensors_task(void *param)
     if (error)
     {
     	printf("SCD4x Sensor Failure\n\r");
-    	//CY_ASSERT(0);
+    	CY_ASSERT(0);
     }
     else
     {
         printf("SCD4x serial: 0x%04x%04x%04x\n\r", serial_number[0], serial_number[1], serial_number[2]);
+        error = scd4x_start_periodic_measurement();
+        if(error)
+        {
+        	printf("Could not start SCD4x periodic measurements\n\r");
+        	CY_ASSERT(0);
+        }
     }
 
     /* Initialize PAS CO2 sensor with default parameter values */
@@ -123,7 +132,7 @@ void env_sensors_task(void *param)
     if (result != CY_RSLT_SUCCESS)
     {
         printf("PAS CO2 device initialization error.\n\r");
-        //CY_ASSERT(0);
+        CY_ASSERT(0);
     }
 
     /*Initialize SensorsTimer*/
@@ -181,24 +190,28 @@ void env_sensors_task(void *param)
                 }
             }
 
-            /*** Measure & Read the SGP40 and SHT41 data  ***/
+            /*** Measure / Read the SGP40, SHT41, SCD41, PAS_CO2 data  ***/
             if(!sensor_read)
             {
             	sht4x_measure();
+            	sgp40_measure_raw_with_rht(sensor_data_storage.sht_humidity, sensor_data_storage.sht_temperature);
+            	scd4x_set_ambient_pressure((uint16_t)(sensor_data_storage.bmp_pressure/100));
             }
             else
             {
             	sht4x_read(&sensor_data_storage.sht_temperature, &sensor_data_storage.sht_humidity);
-            }
-            if(!sensor_read)
-            {
-            	sgp40_measure_raw_with_rht(sensor_data_storage.sht_humidity, sensor_data_storage.sht_temperature);
-            }
-            else
-            {
             	sgp40_read_raw(&sensor_data_storage.sgp_sraw_voc);
             	VocAlgorithm_process(&voc_algorithm_params, sensor_data_storage.sgp_sraw_voc, &sensor_data_storage.sgp_voc_index);
+            	scd4x_read_measurement(&sensor_data_storage.scd_co2, &sensor_data_storage.scd_temperature, &sensor_data_storage.scd_humidity);
+            	result = xensiv_pasco2_mtb_read(&xensiv_pasco2, (uint16_t)(sensor_data_storage.bmp_pressure/100), &co2_ppm);
+                if (result == CY_RSLT_SUCCESS)
+                {
+                    sensor_data_storage.pas_co2 = co2_ppm;
+                    printf("CO2 PAS %d ppm CO2 SCD %d ppm\r\n", sensor_data_storage.pas_co2, sensor_data_storage.scd_co2);
+                }
             }
+
+            /*Toggle measure/read cycles*/
             sensor_read = !sensor_read;
     	}
     }
