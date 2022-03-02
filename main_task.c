@@ -18,7 +18,7 @@
 #include "sensors_task.h"
 #include "speech_task.h"
 
-#define ARDU_BAUD_RATE       		600000
+#define ARDU_BAUD_RATE       		115200
 #define SCOPE_SCALE					0.0042735042735043
 
 static cy_rslt_t ardu_uart_init();
@@ -55,6 +55,24 @@ void main_task(void *param)
 	int ecfg_result = -1;
 	uint8_t motion_cnt = 0;
 	speech_t speech_msg;
+	char level_str[16] = {0};
+	uint16_t old_co2_pas = 0;
+	uint16_t old_co2_scd = 0;
+	int32 old_sht_temp = 0;
+	int32 old_sht_hum = 0;
+	int16_t old_acc_x = 0;
+	int16_t old_acc_y = 0;
+	int16_t old_acc_z = 0;
+	int16_t old_gyr_x = 0;
+	int16_t old_gyr_y = 0;
+	int16_t old_gyr_z = 0;
+	float old_bme_temp = 0;
+	float old_bme_hum = 0;
+	float old_bme_pres = 0;
+	float old_bme_gre = 0;
+	uint8_t old_bme_ind = 0;
+	double old_bmp_temp = 0;
+	double old_bmp_pres = 0;
 
 	printf("main task has started.\r\n");
 
@@ -119,16 +137,66 @@ void main_task(void *param)
         genieWriteObject(GENIE_OBJ_ANGULAR_METER, 0, (int16_t)sensor_data_storage.sgp_voc_index);
         genieWriteObject(44, 0, (int16_t)((sensor_data_storage.sht_temperature)/1000));
         genieWriteObject(GENIE_OBJ_GAUGE, 0, (int16_t)(sensor_data_storage.sht_humidity/1000));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 6, (int16_t)((sensor_data_storage.sht_temperature/10)));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 7, (int16_t)(sensor_data_storage.sht_humidity/10));
+        if(old_sht_temp != sensor_data_storage.sht_temperature)
+        {
+        	old_sht_temp = sensor_data_storage.sht_temperature;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", (float)(sensor_data_storage.sht_temperature/1000.0));
+            genieWriteStr (2, level_str);
+        }
+
+        if(old_sht_hum != sensor_data_storage.sht_humidity)
+        {
+        	old_sht_hum = sensor_data_storage.sht_humidity;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", (float)(sensor_data_storage.sht_humidity/1000.0));
+            genieWriteStr (3, level_str);
+        }
 
         /*Form1*/
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 0, sensor_data_storage.bmi_acc_x);
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 1, sensor_data_storage.bmi_acc_y);
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 2, sensor_data_storage.bmi_acc_z);
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 3, sensor_data_storage.bmi_gyr_x);
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 4, sensor_data_storage.bmi_gyr_y);
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 5, sensor_data_storage.bmi_gyr_z);
+        if(old_acc_x != sensor_data_storage.bmi_acc_x)
+        {
+        	old_acc_x = sensor_data_storage.bmi_acc_x;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%d", old_acc_x);
+            genieWriteStr (4, level_str);
+        }
+        if(old_acc_y != sensor_data_storage.bmi_acc_y)
+        {
+        	old_acc_y = sensor_data_storage.bmi_acc_y;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%d", old_acc_y);
+            genieWriteStr (5, level_str);
+        }
+        if(old_acc_z != sensor_data_storage.bmi_acc_z)
+        {
+        	old_acc_z = sensor_data_storage.bmi_acc_z;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%d", old_acc_z);
+            genieWriteStr (6, level_str);
+        }
+        if(old_gyr_x != sensor_data_storage.bmi_gyr_x)
+        {
+        	old_gyr_x = sensor_data_storage.bmi_gyr_x;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%d", old_gyr_x);
+            genieWriteStr (7, level_str);
+        }
+        if(old_gyr_y != sensor_data_storage.bmi_gyr_y)
+        {
+        	old_gyr_y = sensor_data_storage.bmi_gyr_y;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%d", old_gyr_y);
+            genieWriteStr (8, level_str);
+        }
+        if(old_gyr_z != sensor_data_storage.bmi_gyr_z)
+        {
+        	old_gyr_z = sensor_data_storage.bmi_gyr_z;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%d", old_gyr_z);
+            genieWriteStr (9, level_str);
+        }
+
         genieWriteObject(GENIE_OBJ_SCOPE, 0, (int16_t)(sensor_data_storage.bmi_acc_x * SCOPE_SCALE));
         genieWriteObject(GENIE_OBJ_SCOPE, 0, (int16_t)(sensor_data_storage.bmi_acc_y * SCOPE_SCALE));
         genieWriteObject(GENIE_OBJ_SCOPE, 0, (int16_t)(sensor_data_storage.bmi_acc_z * SCOPE_SCALE));
@@ -157,14 +225,90 @@ void main_task(void *param)
 
         /*Form2*/
         genieWriteObject(GENIE_OBJ_COOL_GAUGE, 0, (uint16_t)((sensor_data_storage.bmp_pressure/1000)));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 14, (uint16_t)(sensor_data_storage.bmp_pressure/10));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 8, (uint16_t)(sensor_data_storage.bmp_temperature*100));
-        genieWriteObject(GENIE_OBJ_METER, 0, (uint16_t)((sensor_data_storage.bme_pressure/1000)));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 9, (uint16_t)(sensor_data_storage.bme_pressure/10));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 10, (uint16_t)(sensor_data_storage.bme_temperature*100));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 11, (uint16_t)(sensor_data_storage.bme_gas_resistance/100000));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 12, (uint16_t)(sensor_data_storage.bme_humidity*100));
-        genieWriteObject(GENIE_OBJ_LED_DIGITS, 13, (uint16_t)(sensor_data_storage.bme_gas_index));
+        genieWriteObject(GENIE_OBJ_COOL_GAUGE, 1, (uint16_t)((sensor_data_storage.bme_pressure/1000)));
+
+        if(old_bme_temp != sensor_data_storage.bme_temperature)
+        {
+        	old_bme_temp = sensor_data_storage.bme_temperature;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", old_bme_temp);
+            genieWriteStr (13, level_str);
+        }
+
+        if(old_bme_hum != sensor_data_storage.bme_humidity)
+        {
+        	old_bme_hum = sensor_data_storage.bme_humidity;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", old_bme_hum);
+            genieWriteStr (15, level_str);
+        }
+
+        if(old_bme_pres != sensor_data_storage.bme_pressure)
+        {
+        	old_bme_pres = sensor_data_storage.bme_pressure;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", old_bme_pres/1000);
+            genieWriteStr (12, level_str);
+        }
+
+        if(old_bme_gre != sensor_data_storage.bme_gas_resistance)
+        {
+        	old_bme_gre = sensor_data_storage.bme_gas_resistance;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.0f", old_bme_gre/100000);
+            genieWriteStr (14, level_str);
+        }
+
+        if(old_bme_ind != sensor_data_storage.bme_gas_index)
+        {
+        	old_bme_ind = sensor_data_storage.bme_gas_index;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%d", old_bme_ind);
+            genieWriteStr (16, level_str);
+        }
+
+        if(old_bmp_temp != sensor_data_storage.bmp_temperature)
+        {
+        	old_bmp_temp = sensor_data_storage.bmp_temperature;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", old_bmp_temp);
+            genieWriteStr (10, level_str);
+        }
+
+        if(old_bmp_pres != sensor_data_storage.bmp_pressure)
+        {
+        	old_bmp_pres = sensor_data_storage.bmp_pressure;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", old_bmp_pres/1000);
+            genieWriteStr (11, level_str);
+        }
+
+        /*Form3*/
+        memset(level_str, 0x00, sizeof(level_str));
+        sprintf(level_str, "%d ppm", sensor_data_storage.pas_co2);
+        if(old_co2_pas != sensor_data_storage.pas_co2)
+        {
+        	genieWriteStr (0, level_str);
+        	old_co2_pas = sensor_data_storage.pas_co2;
+        }
+
+        uint16_t gauge_level = (uint16_t)(sensor_data_storage.pas_co2/30);
+        if(gauge_level > 100)
+        {gauge_level = 100;}
+        genieWriteObject(GENIE_OBJ_GAUGE, 1, gauge_level);
+
+        memset(level_str, 0x00, sizeof(level_str));
+        sprintf(level_str, "%d ppm", sensor_data_storage.scd_co2);
+        if(old_co2_scd != sensor_data_storage.scd_co2)
+        {
+        	genieWriteStr (1, level_str);
+        	old_co2_scd = sensor_data_storage.scd_co2;
+        }
+
+        gauge_level = (uint16_t)(sensor_data_storage.scd_co2/30);
+        if(gauge_level > 100)
+        {gauge_level = 100;}
+        genieWriteObject(GENIE_OBJ_GAUGE, 2, gauge_level);
 	}
 }
 
@@ -237,6 +381,7 @@ static void myGenieEventHandler(void)
   GenieFrame Event;
   genieDequeueEvent(&Event);
   int32_t button_val = 0;
+  char msg_str[16] = {0};
 
   if (Event.reportObject.cmd == GENIE_REPORT_EVENT)
   {
@@ -254,6 +399,25 @@ static void myGenieEventHandler(void)
     		  alarm_enabled = false;
 		  }
       }
+    }
+
+    if (Event.reportObject.object == GENIE_OBJ_WINBUTTON)
+    {
+  	  if (Event.reportObject.index == 5)
+  	  {
+  		  genieWriteObject(GENIE_OBJ_FORM, 3, 1);
+          memset(msg_str, 0x00, sizeof(msg_str));
+          sprintf(msg_str, "%d ppm", sensor_data_storage.pas_co2);
+          genieWriteStr (0, msg_str);
+
+          memset(msg_str, 0x00, sizeof(msg_str));
+          sprintf(msg_str, "%d ppm", sensor_data_storage.scd_co2);
+          genieWriteStr (1, msg_str);
+  	  }
+  	  if (Event.reportObject.index == 6)
+  	  {
+  		genieWriteObject(GENIE_OBJ_FORM, 2, 1);
+  	  }
     }
   }
 }
