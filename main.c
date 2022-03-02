@@ -156,7 +156,7 @@ int main(void)
     	CY_ASSERT(0);
     }
 
-    speech_MsgQueue = xQueueCreate( 1, sizeof( speech_t ) );
+    speech_MsgQueue = xQueueCreate( 4, sizeof( speech_t ) );
     if( speech_MsgQueue == NULL )
     {
     	printf("Error: could not create a queue for speech_task.\r\n");

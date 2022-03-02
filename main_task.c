@@ -17,6 +17,7 @@
 #include "visiGenieSerial.h"
 #include "sensors_task.h"
 #include "speech_task.h"
+#include "timers.h"
 
 #define ARDU_BAUD_RATE       		115200
 #define SCOPE_SCALE					0.0042735042735043
@@ -30,10 +31,17 @@ static void uartWriteHandler(uint32_t val);
 static uint32_t uartGetMillis(void);
 static void resetDisplay(void);
 
-/* Event handlers */
+/* Display Event Handler */
 static void myGenieEventHandler(void);
 
+/*Speech engine function prototype*/
+static void Speech_Check_Callback(TimerHandle_t xTimer);
+static void Phrase_Repeat_Callback(TimerHandle_t xTimer);
+static co2status_t DecodeCO2Level(int co2eq_ppm);
+
 TaskHandle_t main_task_handle = NULL;
+TimerHandle_t phrase_repeat = NULL;
+TimerHandle_t speech_check = NULL;
 
 /*Arduino UART object*/
 cyhal_uart_t ardu_uart;
@@ -48,12 +56,18 @@ static UserApiConfig userConfig =
 
 _Bool alarm_enabled = false;
 
+long ph_rep_id = 1;
+long sp_ch_id = 2;
+co2status_t co2_state_prev = CO2_UNDEFINED;
+_Bool check = false;
+
 void main_task(void *param)
 {
 	(void) param;
 	cy_rslt_t result;
 	int ecfg_result = -1;
 	uint8_t motion_cnt = 0;
+	BaseType_t msg_status;
 	speech_t speech_msg;
 	char level_str[16] = {0};
 	uint16_t old_co2_pas = 0;
@@ -73,6 +87,8 @@ void main_task(void *param)
 	uint8_t old_bme_ind = 0;
 	double old_bmp_temp = 0;
 	double old_bmp_pres = 0;
+	double old_bmp_alt = 0;
+	co2status_t co2_state = CO2_UNDEFINED;
 
 	printf("main task has started.\r\n");
 
@@ -85,7 +101,7 @@ void main_task(void *param)
     genieInitWithConfig(&userConfig);
     genieAttachEventHandler(myGenieEventHandler);
     resetDisplay();
-    genieWriteContrast(15);
+    genieWriteContrast(8);
     genieWriteStr(0, GENIE_VERSION);
     vTaskDelay(pdMS_TO_TICKS(2000));
 
@@ -123,10 +139,12 @@ void main_task(void *param)
 	printf("S1V30340 SPI Initialization succeeded. \n\r");
 
 	/*Play the greeting*/
-	GPIO_ControlMute(1); /*Mute - OFF*/
-	S1V30340_Play_Specific_Audio(GREETING_PHRASE);
-	S1V30340_Wait_For_Termination();
-	GPIO_ControlMute(0); /*Mute - ON*/
+	speech_msg.phrase_number = GREETING_PHRASE;
+	(void)xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 0 );
+
+	/*Initial CO2 speech engine check timer startup.*/
+	speech_check = xTimerCreate("Check", SPEECH_ENGINE_INIT, pdFALSE, &sp_ch_id, Speech_Check_Callback);
+	xTimerStart(speech_check, 100);
 
 	for(;;)
 	{
@@ -207,7 +225,7 @@ void main_task(void *param)
         {
         	if(alarm_enabled)
         	{
-        		speech_msg.phrase_number = 1;
+        		speech_msg.phrase_number = MOTION_DETECTED;
         		(void)xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 0 );
         	}
         	motion_cnt = 8;
@@ -283,6 +301,14 @@ void main_task(void *param)
             genieWriteStr (11, level_str);
         }
 
+        if(old_bmp_alt != sensor_data_storage.bmp_altitude)
+        {
+        	old_bmp_alt = sensor_data_storage.bmp_altitude;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", old_bmp_alt);
+            genieWriteStr (17, level_str);
+        }
+
         /*Form3*/
         memset(level_str, 0x00, sizeof(level_str));
         sprintf(level_str, "%d ppm", sensor_data_storage.pas_co2);
@@ -309,6 +335,112 @@ void main_task(void *param)
         if(gauge_level > 100)
         {gauge_level = 100;}
         genieWriteObject(GENIE_OBJ_GAUGE, 2, gauge_level);
+
+
+		/*Speech engine periodic check*/
+		if(check)
+		{
+			/*Self lock-out*/
+			check = false;
+
+			/*Check the current status of the CO2 concentration*/
+			co2_state = DecodeCO2Level(sensor_data_storage.pas_co2);
+
+			/*Play warning messages according to the CO2 concentration*/
+			msg_status = pdFAIL;
+			switch (co2_state)
+			{
+				case CO2_NORMAL:
+				{
+					/*Play the message only once on state change*/
+					if(co2_state_prev != CO2_NORMAL)
+					{
+						speech_msg.phrase_number = CO2_NORMAL_PHRASE;
+						msg_status = xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+						if(msg_status == pdPASS)
+						{
+							if(phrase_repeat != NULL)
+							{
+								xTimerDelete(phrase_repeat, 100);
+								phrase_repeat = NULL;
+							}
+
+							co2_state_prev = CO2_NORMAL;
+						}
+					}
+					break;
+				}
+				case CO2_MEDIUM:
+				{
+					/*Play the message every xx seconds*/
+					if(co2_state_prev != CO2_MEDIUM)
+					{
+						speech_msg.phrase_number = CO2_MEDIUM_PHRASE;
+						msg_status = xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+						if(msg_status == pdPASS)
+						{
+							if(phrase_repeat != NULL)
+							{
+								xTimerDelete(phrase_repeat, 100);
+								phrase_repeat = NULL;
+							}
+
+							co2_state_prev = CO2_MEDIUM;
+
+							phrase_repeat = xTimerCreate("Repeat", CO2_MEDIUM_REPEAT, pdFALSE, &ph_rep_id, Phrase_Repeat_Callback);
+							xTimerStart(phrase_repeat, 100);
+						}
+					}
+					break;
+				}
+				case CO2_MAXIMUM:
+				{
+					/*Play the message every xx seconds*/
+					if(co2_state_prev != CO2_MAXIMUM)
+					{
+						speech_msg.phrase_number = CO2_MAXIMUM_PHRASE;
+						msg_status = xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+						if(msg_status == pdPASS)
+						{
+							if(phrase_repeat != NULL)
+							{
+								xTimerDelete(phrase_repeat, 100);
+								phrase_repeat = NULL;
+							}
+
+							co2_state_prev = CO2_MAXIMUM;
+
+							phrase_repeat = xTimerCreate("Repeat", CO2_MAXIMUM_REPEAT, pdFALSE, &ph_rep_id, Phrase_Repeat_Callback);
+							xTimerStart(phrase_repeat, 100);
+						}
+					}
+					break;
+				}
+				case CO2_UNDEFINED:
+				{
+					if(phrase_repeat != NULL)
+					{
+						xTimerDelete(phrase_repeat, 100);
+						phrase_repeat = NULL;
+					}
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+
+			/*Start the timer which will activate next speech engine check*/
+			if(speech_check != NULL)
+			{
+				xTimerDelete(speech_check, 100);
+				speech_check = NULL;
+			}
+			speech_check = xTimerCreate("Check", SPEECH_ENGINE_CHECK, pdFALSE, &sp_ch_id, Speech_Check_Callback);
+			xTimerStart(speech_check, 100);
+		}
+
 	}
 }
 
@@ -372,7 +504,7 @@ static void resetDisplay(void)
 	cyhal_gpio_write(ARDU_IO8, false);
 	vTaskDelay(pdMS_TO_TICKS(500));
 	cyhal_gpio_write(ARDU_IO8, true);
-	vTaskDelay(pdMS_TO_TICKS(2000));
+	vTaskDelay(pdMS_TO_TICKS(3000));
 }
 
 /*ViSi Genie Event Handler*/
@@ -420,4 +552,37 @@ static void myGenieEventHandler(void)
   	  }
     }
   }
+}
+
+static co2status_t DecodeCO2Level(int co2eq_ppm)
+{
+	if(co2eq_ppm >= LVL_NORMAL && co2eq_ppm < LVL_MEDIUM)
+	{
+		return CO2_NORMAL;
+	}
+	else if (co2eq_ppm >= LVL_MEDIUM && co2eq_ppm < LVL_MAXIMUM)
+	{
+		return CO2_MEDIUM;
+	}
+	else if (co2eq_ppm >=  LVL_MAXIMUM)
+	{
+		return CO2_MAXIMUM;
+	}
+	else
+
+	return CO2_UNDEFINED;
+}
+
+void Phrase_Repeat_Callback(TimerHandle_t xTimer)
+{
+	xTimerDelete(phrase_repeat, 100);
+	phrase_repeat = NULL;
+	co2_state_prev = CO2_UNDEFINED;
+}
+
+void Speech_Check_Callback(TimerHandle_t xTimer)
+{
+	xTimerDelete(speech_check, 100);
+	speech_check = NULL;
+	check = true;
 }

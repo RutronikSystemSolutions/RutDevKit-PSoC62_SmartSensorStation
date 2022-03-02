@@ -20,6 +20,7 @@
 #include "sensirion_voc_algorithm.h"
 #include "scd4x.h"
 #include "xensiv_pasco2_mtb.h"
+#include "math.h"
 
 /*Priority for sensor interrupts*/
 #define MOSE_IRQ_PRIORITY		7
@@ -166,7 +167,7 @@ void env_sensors_task(void *param)
 
         	/*** Read the BMP390 data ***/
             rslt = bmp3_get_status(&bmp_status, &dev);
-            /* Read temperature and pressure data */
+            /* Read temperature, pressure and pressure data */
             if (rslt == BMP3_OK)
             {
                 rslt = bmp3_get_sensor_data(BMP3_PRESS_TEMP, &bmp_data, &dev);
@@ -174,6 +175,7 @@ void env_sensors_task(void *param)
                 (void) bmp3_get_status(&bmp_status, &dev);
                 sensor_data_storage.bmp_temperature = bmp_data.temperature;
                 sensor_data_storage.bmp_pressure = bmp_data.pressure;
+                sensor_data_storage.bmp_altitude = 44330.0 * (1.0 - pow(sensor_data_storage.bmp_pressure / 101325, 1/5.255));
             }
 
             /*** Read the BME688 data ***/

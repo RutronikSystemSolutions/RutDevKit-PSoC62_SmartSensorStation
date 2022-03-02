@@ -428,7 +428,7 @@
                     <Personality template="mxs40pll" version="2.0">
                         <Param id="lowFrequencyMode" value="false"/>
                         <Param id="configuration" value="auto"/>
-                        <Param id="desiredFrequency" value="150.000"/>
+                        <Param id="desiredFrequency" value="120.000"/>
                         <Param id="optimization" value="MinPower"/>
                     </Personality>
                 </Block>
