@@ -274,9 +274,11 @@ void motion_sensors_task(void *param)
 	(void) param;
 	uint32_t signal;
 	int8_t rslt;
+	_Bool skip_first = true;
 
     for(;;)
     {
+    	begin:
     	mot_note_handle = xTaskGetCurrentTaskHandle();
     	signal = ulTaskNotifyTakeIndexed( 0, pdTRUE, portMAX_DELAY );
     	if(signal)
@@ -307,6 +309,12 @@ void motion_sensors_task(void *param)
             rslt = bmi2_get_int_status(&int_status, &bmi2_dev);
             if (int_status & BMI270_ANY_MOT_STATUS_MASK)
             {
+            	if(skip_first)
+            	{
+            		skip_first = false;
+            		goto begin;
+            	}
+
             	/*Motion detected*/
             	motion = true;
             }

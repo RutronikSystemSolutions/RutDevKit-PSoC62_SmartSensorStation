@@ -34,7 +34,7 @@ static void resetDisplay(void);
 /* Display Event Handler */
 static void myGenieEventHandler(void);
 
-/*Speech engine function prototype*/
+/*Speech engine functions*/
 static void Speech_Check_Callback(TimerHandle_t xTimer);
 static void Phrase_Repeat_Callback(TimerHandle_t xTimer);
 static co2status_t DecodeCO2Level(int co2eq_ppm);
@@ -43,9 +43,8 @@ TaskHandle_t main_task_handle = NULL;
 TimerHandle_t phrase_repeat = NULL;
 TimerHandle_t speech_check = NULL;
 
-/*Arduino UART object*/
+/*Arduino UART object and configuration*/
 cyhal_uart_t ardu_uart;
-
 static UserApiConfig userConfig =
 {
 	.available = uartAvailHandler,
@@ -54,8 +53,10 @@ static UserApiConfig userConfig =
 	.millis = uartGetMillis
 };
 
-_Bool alarm_enabled = false;
+/*Global variable for motion detection*/
+_Bool alarm_enabled = true;
 
+/*Global variables for CO2 Speech Engine*/
 long ph_rep_id = 1;
 long sp_ch_id = 2;
 co2status_t co2_state_prev = CO2_UNDEFINED;
@@ -440,7 +441,6 @@ void main_task(void *param)
 			speech_check = xTimerCreate("Check", SPEECH_ENGINE_CHECK, pdFALSE, &sp_ch_id, Speech_Check_Callback);
 			xTimerStart(speech_check, 100);
 		}
-
 	}
 }
 
@@ -549,6 +549,17 @@ static void myGenieEventHandler(void)
   	  if (Event.reportObject.index == 6)
   	  {
   		genieWriteObject(GENIE_OBJ_FORM, 2, 1);
+  	  }
+  	  if (Event.reportObject.index == 8)
+  	  {
+  		  genieWriteObject(GENIE_OBJ_FORM, 3, 1);
+          memset(msg_str, 0x00, sizeof(msg_str));
+          sprintf(msg_str, "%d ppm", sensor_data_storage.pas_co2);
+          genieWriteStr (0, msg_str);
+
+          memset(msg_str, 0x00, sizeof(msg_str));
+          sprintf(msg_str, "%d ppm", sensor_data_storage.scd_co2);
+          genieWriteStr (1, msg_str);
   	  }
     }
   }
