@@ -129,7 +129,7 @@
 #define LEN_ISC_SEQUENCER_PAUSE_RESP		0x0006
 #define LEN_ISC_SEQUENCER_STATUS_IND		0x0006
 #define LEN_ISC_SEQUENCER_ERROR_IND			0x0006
-#define	INIT_AUDIO_VOLUME					0x38	// Audio volume (0x00 - 0x43)
+#define	INIT_AUDIO_VOLUME					0x39	// Audio volume (0x00 - 0x43)
 
 /////////////////////////////////////
 // data array of request message

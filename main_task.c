@@ -345,7 +345,7 @@ void main_task(void *param)
 			check = false;
 
 			/*Check the current status of the CO2 concentration*/
-			co2_state = DecodeCO2Level(sensor_data_storage.pas_co2);
+			co2_state = DecodeCO2Level(sensor_data_storage.scd_co2);
 
 			/*Play warning messages according to the CO2 concentration*/
 			msg_status = pdFAIL;
