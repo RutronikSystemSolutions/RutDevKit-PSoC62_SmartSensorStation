@@ -81,6 +81,7 @@ void env_sensors_task(void *param)
     cyhal_gpio_enable_event(ARDU_IO2, CYHAL_GPIO_IRQ_RISE, MOSE_IRQ_PRIORITY, true);
 
     /*Initialize the BMP390 Sensor*/
+    sensor_data_storage.bmp_altitude_offset = 0.0;
     result = bmp390_app_init();
     if (result != CY_RSLT_SUCCESS)
     {CY_ASSERT(0);}

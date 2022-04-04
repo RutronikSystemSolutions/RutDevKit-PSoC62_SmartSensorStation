@@ -306,7 +306,7 @@ void main_task(void *param)
         {
         	old_bmp_alt = sensor_data_storage.bmp_altitude;
             memset(level_str, 0x00, sizeof(level_str));
-            sprintf(level_str, "%.2f", old_bmp_alt);
+            sprintf(level_str, "%.2f", old_bmp_alt - sensor_data_storage.bmp_altitude_offset);
             genieWriteStr (17, level_str);
         }
 
@@ -530,6 +530,11 @@ static void myGenieEventHandler(void)
 		  {
     		  alarm_enabled = false;
 		  }
+      }
+
+      if (Event.reportObject.index == 1)
+      {
+    	  sensor_data_storage.bmp_altitude_offset = sensor_data_storage.bmp_altitude;
       }
     }
 

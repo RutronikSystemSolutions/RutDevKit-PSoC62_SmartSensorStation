@@ -20,7 +20,7 @@ typedef struct app_sensor_data
 	double bmp_temperature;
 	double bmp_pressure;
 	double bmp_altitude;
-
+	double bmp_altitude_offset;
 
 	int16_t bmi_acc_x;
 	int16_t bmi_acc_y;
