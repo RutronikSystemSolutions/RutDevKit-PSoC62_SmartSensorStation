@@ -23,6 +23,8 @@
 #define SPEECH_ENGINE_CHECK	5000U
 #define SPEECH_ENGINE_INIT	10000U
 
+#define ACTIVATE_FORM0_MSEC	60000U
+
 typedef enum co2status
 {
 	CO2_NORMAL,

@@ -15,6 +15,36 @@
                 </Block>
                 <Block location="csd[0].csd[0]">
                     <Alias value="CAPSENSE"/>
+                    <Personality template="mxs40csd" version="2.0">
+                        <Param id="CapSenseEnable" value="true"/>
+                        <Param id="CapSenseCore" value="4"/>
+                        <Param id="SensorCount" value="6"/>
+                        <Param id="CapacitorCount" value="1"/>
+                        <Param id="SensorName0" value="Cmod"/>
+                        <Param id="SensorName1" value="LinearSlider_Sns0"/>
+                        <Param id="SensorName2" value="LinearSlider_Sns1"/>
+                        <Param id="SensorName3" value="LinearSlider_Sns2"/>
+                        <Param id="SensorName4" value="LinearSlider_Sns3"/>
+                        <Param id="SensorName5" value="LinearSlider_Sns4"/>
+                        <Param id="CapSenseConfigurator" value="0"/>
+                        <Param id="CapSenseTuner" value="0"/>
+                        <Param id="CsdAdcEnable" value="false"/>
+                        <Param id="numChannels" value="1"/>
+                        <Param id="resolution" value="CY_CSDADC_RESOLUTION_10BIT"/>
+                        <Param id="range" value="CY_CSDADC_RANGE_VDDA"/>
+                        <Param id="acqTime" value="10"/>
+                        <Param id="autoCalibrInterval" value="30"/>
+                        <Param id="vref" value="-1"/>
+                        <Param id="operClkDivider" value="2"/>
+                        <Param id="azTime" value="5"/>
+                        <Param id="csdInitTime" value="25"/>
+                        <Param id="inFlash" value="true"/>
+                        <Param id="CsdIdacEnable" value="false"/>
+                        <Param id="CsdIdacAselect" value="CY_CSDIDAC_GPIO"/>
+                        <Param id="CsdIdacBselect" value="CY_CSDIDAC_DISABLED"/>
+                        <Param id="csdIdacInitTime" value="25"/>
+                        <Param id="idacInFlash" value="true"/>
+                    </Personality>
                 </Block>
                 <Block location="ioss[0].port[0].pin[0]">
                     <Alias value="WCO_IN"/>
@@ -272,24 +302,108 @@
                 </Block>
                 <Block location="ioss[0].port[7].pin[0]">
                     <Alias value="CS1"/>
+                    <Personality template="mxs40pin" version="1.1">
+                        <Param id="DriveModes" value="CY_GPIO_DM_ANALOG"/>
+                        <Param id="initialState" value="1"/>
+                        <Param id="vtrip" value="CY_GPIO_VTRIP_CMOS"/>
+                        <Param id="isrTrigger" value="CY_GPIO_INTR_DISABLE"/>
+                        <Param id="sioInputBuffer" value="false"/>
+                        <Param id="sioTrip" value="CY_SIO_VTRIP_CMOS"/>
+                        <Param id="sioRef" value="CY_SIO_VREF_PINREF"/>
+                        <Param id="sioVoltage" value="CY_SIO_VOH_1_00"/>
+                        <Param id="slewRate" value="CY_GPIO_SLEW_FAST"/>
+                        <Param id="driveStrength" value="CY_GPIO_DRIVE_1_2"/>
+                        <Param id="sioOutputBuffer" value="true"/>
+                        <Param id="inFlash" value="true"/>
+                    </Personality>
                 </Block>
                 <Block location="ioss[0].port[7].pin[1]">
                     <Alias value="CINTA"/>
+                    <Personality template="mxs40pin" version="1.1">
+                        <Param id="DriveModes" value="CY_GPIO_DM_ANALOG"/>
+                        <Param id="initialState" value="1"/>
+                        <Param id="vtrip" value="CY_GPIO_VTRIP_CMOS"/>
+                        <Param id="isrTrigger" value="CY_GPIO_INTR_DISABLE"/>
+                        <Param id="sioInputBuffer" value="false"/>
+                        <Param id="sioTrip" value="CY_SIO_VTRIP_CMOS"/>
+                        <Param id="sioRef" value="CY_SIO_VREF_PINREF"/>
+                        <Param id="sioVoltage" value="CY_SIO_VOH_1_00"/>
+                        <Param id="slewRate" value="CY_GPIO_SLEW_FAST"/>
+                        <Param id="driveStrength" value="CY_GPIO_DRIVE_1_2"/>
+                        <Param id="sioOutputBuffer" value="true"/>
+                        <Param id="inFlash" value="true"/>
+                    </Personality>
                 </Block>
                 <Block location="ioss[0].port[7].pin[2]">
                     <Alias value="CINTB"/>
                 </Block>
                 <Block location="ioss[0].port[7].pin[3]">
                     <Alias value="CS2"/>
+                    <Personality template="mxs40pin" version="1.1">
+                        <Param id="DriveModes" value="CY_GPIO_DM_ANALOG"/>
+                        <Param id="initialState" value="1"/>
+                        <Param id="vtrip" value="CY_GPIO_VTRIP_CMOS"/>
+                        <Param id="isrTrigger" value="CY_GPIO_INTR_DISABLE"/>
+                        <Param id="sioInputBuffer" value="false"/>
+                        <Param id="sioTrip" value="CY_SIO_VTRIP_CMOS"/>
+                        <Param id="sioRef" value="CY_SIO_VREF_PINREF"/>
+                        <Param id="sioVoltage" value="CY_SIO_VOH_1_00"/>
+                        <Param id="slewRate" value="CY_GPIO_SLEW_FAST"/>
+                        <Param id="driveStrength" value="CY_GPIO_DRIVE_1_2"/>
+                        <Param id="sioOutputBuffer" value="true"/>
+                        <Param id="inFlash" value="true"/>
+                    </Personality>
                 </Block>
                 <Block location="ioss[0].port[7].pin[4]">
                     <Alias value="CS3"/>
+                    <Personality template="mxs40pin" version="1.1">
+                        <Param id="DriveModes" value="CY_GPIO_DM_ANALOG"/>
+                        <Param id="initialState" value="1"/>
+                        <Param id="vtrip" value="CY_GPIO_VTRIP_CMOS"/>
+                        <Param id="isrTrigger" value="CY_GPIO_INTR_DISABLE"/>
+                        <Param id="sioInputBuffer" value="false"/>
+                        <Param id="sioTrip" value="CY_SIO_VTRIP_CMOS"/>
+                        <Param id="sioRef" value="CY_SIO_VREF_PINREF"/>
+                        <Param id="sioVoltage" value="CY_SIO_VOH_1_00"/>
+                        <Param id="slewRate" value="CY_GPIO_SLEW_FAST"/>
+                        <Param id="driveStrength" value="CY_GPIO_DRIVE_1_2"/>
+                        <Param id="sioOutputBuffer" value="true"/>
+                        <Param id="inFlash" value="true"/>
+                    </Personality>
                 </Block>
                 <Block location="ioss[0].port[7].pin[5]">
                     <Alias value="CS4"/>
+                    <Personality template="mxs40pin" version="1.1">
+                        <Param id="DriveModes" value="CY_GPIO_DM_ANALOG"/>
+                        <Param id="initialState" value="1"/>
+                        <Param id="vtrip" value="CY_GPIO_VTRIP_CMOS"/>
+                        <Param id="isrTrigger" value="CY_GPIO_INTR_DISABLE"/>
+                        <Param id="sioInputBuffer" value="false"/>
+                        <Param id="sioTrip" value="CY_SIO_VTRIP_CMOS"/>
+                        <Param id="sioRef" value="CY_SIO_VREF_PINREF"/>
+                        <Param id="sioVoltage" value="CY_SIO_VOH_1_00"/>
+                        <Param id="slewRate" value="CY_GPIO_SLEW_FAST"/>
+                        <Param id="driveStrength" value="CY_GPIO_DRIVE_1_2"/>
+                        <Param id="sioOutputBuffer" value="true"/>
+                        <Param id="inFlash" value="true"/>
+                    </Personality>
                 </Block>
                 <Block location="ioss[0].port[7].pin[6]">
                     <Alias value="CS5"/>
+                    <Personality template="mxs40pin" version="1.1">
+                        <Param id="DriveModes" value="CY_GPIO_DM_ANALOG"/>
+                        <Param id="initialState" value="1"/>
+                        <Param id="vtrip" value="CY_GPIO_VTRIP_CMOS"/>
+                        <Param id="isrTrigger" value="CY_GPIO_INTR_DISABLE"/>
+                        <Param id="sioInputBuffer" value="false"/>
+                        <Param id="sioTrip" value="CY_SIO_VTRIP_CMOS"/>
+                        <Param id="sioRef" value="CY_SIO_VREF_PINREF"/>
+                        <Param id="sioVoltage" value="CY_SIO_VOH_1_00"/>
+                        <Param id="slewRate" value="CY_GPIO_SLEW_FAST"/>
+                        <Param id="driveStrength" value="CY_GPIO_DRIVE_1_2"/>
+                        <Param id="sioOutputBuffer" value="true"/>
+                        <Param id="inFlash" value="true"/>
+                    </Personality>
                 </Block>
                 <Block location="ioss[0].port[7].pin[7]">
                     <Alias value="CS_TX"/>
@@ -317,6 +431,13 @@
                 </Block>
                 <Block location="ioss[0].port[9].pin[3]">
                     <Alias value="USER_BTN1"/>
+                </Block>
+                <Block location="peri[0].div_16[1]">
+                    <Personality template="mxs40peripheralclock" version="1.0">
+                        <Param id="intDivider" value="1"/>
+                        <Param id="fracDivider" value="0"/>
+                        <Param id="startOnReset" value="true"/>
+                    </Personality>
                 </Block>
                 <Block location="scb[0]">
                     <Alias value="ARDU_UART"/>
@@ -491,6 +612,10 @@
                     <Port name="ioss[0].port[6].pin[6].digital_inout[0]"/>
                 </Net>
                 <Net>
+                    <Port name="csd[0].csd[0].clock[0]"/>
+                    <Port name="peri[0].div_16[1].clk[0]"/>
+                </Net>
+                <Net>
                     <Port name="ioss[0].port[0].pin[0].analog[0]"/>
                     <Port name="srss[0].clock[0].wco[0].wco_in[0]"/>
                 </Net>
@@ -506,6 +631,26 @@
                     <Port name="ioss[0].port[12].pin[7].analog[0]"/>
                     <Port name="srss[0].clock[0].eco[0].eco_out[0]"/>
                 </Net>
+                <Mux name="sense" location="csd[0].csd[0]">
+                    <Arm>
+                        <Port name="ioss[0].port[7].pin[1].analog[0]"/>
+                    </Arm>
+                    <Arm>
+                        <Port name="ioss[0].port[7].pin[0].analog[0]"/>
+                    </Arm>
+                    <Arm>
+                        <Port name="ioss[0].port[7].pin[3].analog[0]"/>
+                    </Arm>
+                    <Arm>
+                        <Port name="ioss[0].port[7].pin[4].analog[0]"/>
+                    </Arm>
+                    <Arm>
+                        <Port name="ioss[0].port[7].pin[5].analog[0]"/>
+                    </Arm>
+                    <Arm>
+                        <Port name="ioss[0].port[7].pin[6].analog[0]"/>
+                    </Arm>
+                </Mux>
             </Netlist>
         </Device>
     </Devices>

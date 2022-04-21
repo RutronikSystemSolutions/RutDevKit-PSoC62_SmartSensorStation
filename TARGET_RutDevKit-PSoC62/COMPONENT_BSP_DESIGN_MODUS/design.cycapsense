@@ -108,19 +108,19 @@
                 <Property id="TX_CLK_SOURCE" value="AUTO"/>
                 <Property id="RESOLUTION" value="RES12BIT"/>
                 <Property id="NUM_CONV" value="100"/>
-                <Property id="IDAC_MOD0" value="41"/>
+                <Property id="IDAC_MOD0" value="38"/>
                 <Property id="IDAC_MOD1" value="32"/>
                 <Property id="IDAC_MOD2" value="32"/>
                 <Property id="ROW_IDAC_MOD0" value="32"/>
                 <Property id="ROW_IDAC_MOD1" value="32"/>
                 <Property id="ROW_IDAC_MOD2" value="32"/>
                 <Property id="IDAC_GAIN_INDEX" value="GAIN_2400"/>
-                <Property id="FINGER_TH" value="84"/>
+                <Property id="FINGER_TH" value="57"/>
                 <Property id="PROX_TOUCH_TH" value="200"/>
-                <Property id="NOISE_TH" value="42"/>
-                <Property id="NNOISE_TH" value="42"/>
+                <Property id="NOISE_TH" value="28"/>
+                <Property id="NNOISE_TH" value="28"/>
                 <Property id="LOW_BSLN_RST" value="30"/>
-                <Property id="HYSTERESIS" value="10"/>
+                <Property id="HYSTERESIS" value="7"/>
                 <Property id="ON_DEBOUNCE" value="3"/>
                 <Property id="VELOCITY" value="2500"/>
                 <Property id="IIR_FILTER" value="false"/>
@@ -181,7 +181,7 @@
             <Electrodes>
                 <Electrode id="Sns0" kind="Sensor">
                     <ElectrodeProperties>
-                        <Property id="IDAC0" value="41"/>
+                        <Property id="IDAC0" value="38"/>
                         <Property id="IDAC1" value="32"/>
                         <Property id="IDAC2" value="32"/>
                         <Property id="PINS" value="Dedicated pin"/>
@@ -189,7 +189,7 @@
                 </Electrode>
                 <Electrode id="Sns1" kind="Sensor">
                     <ElectrodeProperties>
-                        <Property id="IDAC0" value="42"/>
+                        <Property id="IDAC0" value="39"/>
                         <Property id="IDAC1" value="32"/>
                         <Property id="IDAC2" value="32"/>
                         <Property id="PINS" value="Dedicated pin"/>
@@ -205,7 +205,7 @@
                 </Electrode>
                 <Electrode id="Sns3" kind="Sensor">
                     <ElectrodeProperties>
-                        <Property id="IDAC0" value="38"/>
+                        <Property id="IDAC0" value="34"/>
                         <Property id="IDAC1" value="32"/>
                         <Property id="IDAC2" value="32"/>
                         <Property id="PINS" value="Dedicated pin"/>
@@ -213,7 +213,7 @@
                 </Electrode>
                 <Electrode id="Sns4" kind="Sensor">
                     <ElectrodeProperties>
-                        <Property id="IDAC0" value="31"/>
+                        <Property id="IDAC0" value="30"/>
                         <Property id="IDAC1" value="32"/>
                         <Property id="IDAC2" value="32"/>
                         <Property id="PINS" value="Dedicated pin"/>

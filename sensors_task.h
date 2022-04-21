@@ -48,6 +48,8 @@ typedef struct app_sensor_data
 
 	uint16_t pas_co2;
 
+	uint8_t slider_pos;
+
 }sensor_data_t;
 
 extern TaskHandle_t env_sensors_task_handle;

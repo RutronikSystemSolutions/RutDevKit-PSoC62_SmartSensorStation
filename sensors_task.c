@@ -11,6 +11,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "timers.h"
 #include "sensors_task.h"
 #include "bme688_app.h"
 #include "bmp390_app.h"
@@ -21,11 +22,13 @@
 #include "scd4x.h"
 #include "xensiv_pasco2_mtb.h"
 #include "math.h"
+#include "cycfg_capsense.h"
 
 /*Priority for sensor interrupts*/
 #define MOSE_IRQ_PRIORITY		7
 
 #define DEFAULT_PRESSURE_REF_HPA    (0x3F7)     /* Default atmospheric pressure to compensate for (hPa) */
+#define CAPSENSE_INTR_PRIORITY      (7u)
 
 TaskHandle_t env_sensors_task_handle = NULL;
 TaskHandle_t env_note_handle = NULL;
@@ -59,6 +62,15 @@ cyhal_gpio_callback_data_t imu_int_data =
 
 };
 
+/*CapSense functions & global variables*/
+static uint32_t initialize_capsense(void);
+static void capsense_isr(void);
+static void capsense_callback();
+static void process_touch(void);
+volatile bool capsense_scan_complete = false;
+
+extern TimerHandle_t form0_activate;
+
 void env_sensors_task(void *param)
 {
 	(void) param;
@@ -79,6 +91,13 @@ void env_sensors_task(void *param)
     cyhal_gpio_register_callback(ARDU_IO2, &imu_int_data);
     /* Enable rising edge interrupt events */
     cyhal_gpio_enable_event(ARDU_IO2, CYHAL_GPIO_IRQ_RISE, MOSE_IRQ_PRIORITY, true);
+
+    /*Initialize CapSense*/
+    result = initialize_capsense();
+    if (result != CY_RSLT_SUCCESS)
+    {
+    	CY_ASSERT(result == CY_RSLT_SUCCESS);
+    }
 
     /*Initialize the BMP390 Sensor*/
     sensor_data_storage.bmp_altitude_offset = 0.0;
@@ -155,6 +174,10 @@ void env_sensors_task(void *param)
     if (result != CY_RSLT_SUCCESS)
     {CY_ASSERT(0);}
 
+    /* Initiate first slider sensor scan in CSD mode*/
+    Cy_CapSense_SetupWidget(CY_CAPSENSE_LINEARSLIDER_WDGT_ID, &cy_capsense_context);
+    Cy_CapSense_Scan(&cy_capsense_context);
+
     printf("sensors task has started.\r\n");
     for(;;)
     {
@@ -165,6 +188,23 @@ void env_sensors_task(void *param)
     	if(signal)
     	{
     		cyhal_gpio_toggle(LED1);
+
+        	/*Check if the CSD slider scan is complete*/
+            if (capsense_scan_complete)
+            {
+            	/*Reset scan status flag*/
+            	capsense_scan_complete = false;
+
+            	/*Process the CSD slider */
+            	Cy_CapSense_ProcessWidget(CY_CAPSENSE_LINEARSLIDER_WDGT_ID, &cy_capsense_context);
+
+                /*Scan the CSD slider */
+                Cy_CapSense_SetupWidget(CY_CAPSENSE_LINEARSLIDER_WDGT_ID, &cy_capsense_context);
+                Cy_CapSense_Scan(&cy_capsense_context);
+            }
+
+            /*Process CapSense slider*/
+            process_touch();
 
         	/*** Read the BMP390 data ***/
             rslt = bmp3_get_status(&bmp_status, &dev);
@@ -342,4 +382,110 @@ void imu_interrupt_handler(void *handler_arg, cyhal_gpio_event_t event)
         mot_note_handle = NULL;
         portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
     }
+}
+
+/*******************************************************************************
+* Function Name: initialize_capsense
+********************************************************************************
+* Summary:
+*  This function initializes the CapSense and configure the CapSense
+*  interrupt.
+*
+*******************************************************************************/
+static uint32_t initialize_capsense(void)
+{
+    uint32_t status = CYRET_SUCCESS;
+
+    /* CapSense interrupt configuration */
+    const cy_stc_sysint_t CapSense_interrupt_config =
+        {
+            .intrSrc = CAPSENSE_IRQ,
+            .intrPriority = CAPSENSE_INTR_PRIORITY,
+        };
+
+    /* Capture the CSD HW block and initialize it to the default state. */
+    status = Cy_CapSense_Init(&cy_capsense_context);
+    if (CYRET_SUCCESS != status)
+    {
+        return status;
+    }
+
+    /* Initialize CapSense interrupt */
+    Cy_SysInt_Init(&CapSense_interrupt_config, capsense_isr);
+    NVIC_ClearPendingIRQ(CapSense_interrupt_config.intrSrc);
+    NVIC_EnableIRQ(CapSense_interrupt_config.intrSrc);
+
+    /* Assign a callback function to indicate end of CapSense scan. */
+    status = Cy_CapSense_RegisterCallback(CY_CAPSENSE_END_OF_SCAN_E, capsense_callback, &cy_capsense_context);
+    if (CYRET_SUCCESS != status)
+    {
+        return status;
+    }
+
+    /* Initialize the CapSense firmware modules. */
+    status = Cy_CapSense_Enable(&cy_capsense_context);
+    if (CYRET_SUCCESS != status)
+    {
+        return status;
+    }
+
+    return status;
+}
+
+/*******************************************************************************
+* Function Name: capsense_isr
+********************************************************************************
+* Summary:
+*  Wrapper function for handling interrupts from CapSense block.
+*
+*******************************************************************************/
+static void capsense_isr(void)
+{
+    Cy_CapSense_InterruptHandler(CAPSENSE_HW, &cy_capsense_context);
+}
+
+/*******************************************************************************
+* Function Name: capsense_callback()
+********************************************************************************
+* Summary:
+*  This function sets a flag to indicate end of a CapSense scan.
+*
+* Parameters:
+*  cy_stc_active_scan_sns_t* : pointer to active sensor details.
+*
+*******************************************************************************/
+void capsense_callback(cy_stc_active_scan_sns_t * ptrActiveScan)
+{
+    capsense_scan_complete = true;
+}
+
+/*******************************************************************************
+* Function Name: process_touch
+********************************************************************************
+* Summary:
+*  Gets the details of touch position detected, processes the touch input
+*  and updates the LED status.
+*
+*******************************************************************************/
+static void process_touch(void)
+{
+    cy_stc_capsense_touch_t *slider_touch_info;
+    uint16_t slider_pos;
+    uint8_t slider_touch_status;
+    static uint16_t slider_pos_prev;
+
+    /* Get slider status */
+    slider_touch_info = Cy_CapSense_GetTouchInfo(CY_CAPSENSE_LINEARSLIDER_WDGT_ID, &cy_capsense_context);
+    slider_touch_status = slider_touch_info->numPosition;
+    slider_pos = slider_touch_info->ptrPosition->x;
+
+    /* Detect the new touch on slider */
+    if ((0 != slider_touch_status) && (slider_pos != slider_pos_prev))
+    {
+    	sensor_data_storage.slider_pos = slider_pos;
+    	xTimerReset(form0_activate, 100);
+    }
+
+    /* Update previous touch status */
+    slider_pos_prev = slider_pos;
 }
