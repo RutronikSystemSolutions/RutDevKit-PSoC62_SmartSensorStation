@@ -36,15 +36,24 @@ static void resetDisplay(void);
 static void myGenieEventHandler(void);
 
 /*Speech engine functions*/
-static void Speech_Check_Callback(TimerHandle_t xTimer);
-static void Phrase_Repeat_Callback(TimerHandle_t xTimer);
-static void Form0_Activate_Callback(TimerHandle_t xTimer);
+void Speech_Check_Callback(TimerHandle_t xTimer);
+void Phrase_Repeat_Callback(TimerHandle_t xTimer);
+void Form0_Activate_Callback(TimerHandle_t xTimer);
+void Temp_Reset_Callback(TimerHandle_t xTimer);
+void VOC_Reset_Callback(TimerHandle_t xTimer);
+void Humid_Reset_Callback(TimerHandle_t xTimer);
 static co2status_t DecodeCO2Level(int co2eq_ppm);
+static voc_status_t DecodeVOCLevel(int voc);
+static temp_status_t DecodeTempLevel(int temperature);
+static humid_status_t DecodeHumidLevel(int humidity);
 
 TaskHandle_t main_task_handle = NULL;
 TimerHandle_t phrase_repeat = NULL;
 TimerHandle_t speech_check = NULL;
 TimerHandle_t form0_activate = NULL;
+TimerHandle_t voc_flag_reset = NULL;
+TimerHandle_t temp_flag_reset = NULL;
+TimerHandle_t humid_flag_reset = NULL;
 
 /*Arduino UART object and configuration*/
 cyhal_uart_t ardu_uart;
@@ -56,14 +65,20 @@ static UserApiConfig userConfig =
 	.millis = uartGetMillis
 };
 
-long form_act_id = 3;
-_Bool form0_return = false;
 
-/*Global variables for CO2 Speech Engine*/
 long ph_rep_id = 1;
 long sp_ch_id = 2;
+long form_act_id = 3;
+long voc_tim_id = 4;
+long temp_tim_id = 5;
+long hum_tim_id = 6;
+
 co2status_t co2_state_prev = CO2_UNDEFINED;
-_Bool check = false;
+_Bool check_co2 = false;
+_Bool form0_return = false;
+_Bool voc_ok = true;
+_Bool temp_ok = true;
+_Bool humid_ok = true;
 
 void main_task(void *param)
 {
@@ -94,6 +109,9 @@ void main_task(void *param)
 	double old_bmp_pres = 0;
 	double old_bmp_alt = 0;
 	co2status_t co2_state = CO2_UNDEFINED;
+	voc_status_t voc_state = VOC_UNDEFINED;
+	temp_status_t temp_state = TEMP_UNDEFINED;
+	humid_status_t humid_state = HUMID_UNDEFINED;
 
 	printf("main task has started.\r\n");
 
@@ -149,13 +167,25 @@ void main_task(void *param)
 	speech_msg.phrase_number = GREETING_PHRASE;
 	(void)xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 0 );
 
-	/*Initial CO2 speech engine check timer startup.*/
+	/*CO2 speech engine check timer*/
 	speech_check = xTimerCreate("Check", SPEECH_ENGINE_INIT, pdFALSE, &sp_ch_id, Speech_Check_Callback);
 	xTimerStart(speech_check, 100);
 
-	/**/
+	/*Home page return timer*/
 	form0_activate = xTimerCreate("Form0Act", ACTIVATE_FORM0_MSEC, pdTRUE, &form_act_id, Form0_Activate_Callback);
 	xTimerStart(form0_activate, 100);
+
+	/*VOC alarm reset timer*/
+	voc_flag_reset = xTimerCreate("VOCRst", VOC_ALARM_REPEAT, pdTRUE, &voc_tim_id, VOC_Reset_Callback);
+	xTimerStart(voc_flag_reset, 100);
+
+	/*Temperature alarm reset timer*/
+	temp_flag_reset = xTimerCreate("TempRst", TEMP_ALARM_REPEAT, pdTRUE, &temp_tim_id, Temp_Reset_Callback);
+	xTimerStart(temp_flag_reset, 100);
+
+	/*Humidity alarm reset timer*/
+	humid_flag_reset = xTimerCreate("HumidRst", HUMID_ALARM_REPEAT, pdTRUE, &hum_tim_id, Humid_Reset_Callback);
+	xTimerStart(humid_flag_reset, 100);
 
 	for(;;)
 	{
@@ -167,26 +197,6 @@ void main_task(void *param)
         {
         	form0_return = false;
         	genieWriteObject(GENIE_OBJ_FORM, 0, 1);
-        }
-
-        /*Form6*/
-        genieWriteObject(GENIE_OBJ_ANGULAR_METER, 1, (int16_t)sensor_data_storage.sgp_voc_index);
-        genieWriteObject(44, 1, (int16_t)((sensor_data_storage.sht_temperature)/1000));
-        genieWriteObject(GENIE_OBJ_GAUGE, 3, (int16_t)(sensor_data_storage.sht_humidity/1000));
-        if(old_sht_temp != sensor_data_storage.sht_temperature)
-        {
-        	old_sht_temp = sensor_data_storage.sht_temperature;
-            memset(level_str, 0x00, sizeof(level_str));
-            sprintf(level_str, "%.2f", (float)(sensor_data_storage.sht_temperature/1000.0));
-            genieWriteStr (18, level_str);
-        }
-
-        if(old_sht_hum != sensor_data_storage.sht_humidity)
-        {
-        	old_sht_hum = sensor_data_storage.sht_humidity;
-            memset(level_str, 0x00, sizeof(level_str));
-            sprintf(level_str, "%.2f", (float)(sensor_data_storage.sht_humidity/1000.0));
-            genieWriteStr (19, level_str);
         }
 
         /*Form1*/
@@ -234,8 +244,8 @@ void main_task(void *param)
         }
 
         genieWriteObject(GENIE_OBJ_SCOPE, 0, (int16_t)(sensor_data_storage.bmi_acc_x * SCOPE_SCALE));
-        genieWriteObject(GENIE_OBJ_SCOPE, 0, (int16_t)(sensor_data_storage.bmi_acc_y * SCOPE_SCALE));
-        genieWriteObject(GENIE_OBJ_SCOPE, 0, (int16_t)(sensor_data_storage.bmi_acc_z * SCOPE_SCALE));
+        genieWriteObject(GENIE_OBJ_SCOPE, 4, (int16_t)(sensor_data_storage.bmi_acc_y * SCOPE_SCALE));
+        genieWriteObject(GENIE_OBJ_SCOPE, 5, (int16_t)(sensor_data_storage.bmi_acc_z * SCOPE_SCALE));
         genieWriteObject(GENIE_OBJ_SCOPE, 1, (int16_t)(sensor_data_storage.bmi_gyr_x * SCOPE_SCALE));
         genieWriteObject(GENIE_OBJ_SCOPE, 2, (int16_t)(sensor_data_storage.bmi_gyr_y * SCOPE_SCALE));
         genieWriteObject(GENIE_OBJ_SCOPE, 3, (int16_t)(sensor_data_storage.bmi_gyr_z * SCOPE_SCALE));
@@ -365,11 +375,11 @@ void main_task(void *param)
         {gauge_level = 99;}
         genieWriteObject(35, 0, gauge_level);
 
-		/*Speech engine periodic check*/
-		if(check)
+		/*CO2 speech engine periodic check*/
+		if(check_co2)
 		{
 			/*Self lock-out*/
-			check = false;
+			check_co2 = false;
 
 			/*Check the current status of the CO2 concentration*/
 			co2_state = DecodeCO2Level(sensor_data_storage.scd_co2);
@@ -468,6 +478,74 @@ void main_task(void *param)
 			speech_check = xTimerCreate("Check", SPEECH_ENGINE_CHECK, pdFALSE, &sp_ch_id, Speech_Check_Callback);
 			xTimerStart(speech_check, 100);
 		}
+
+        /*Form6*/
+        genieWriteObject(GENIE_OBJ_ANGULAR_METER, 1, (int16_t)sensor_data_storage.sgp_voc_index);
+        genieWriteObject(44, 1, (int16_t)((sensor_data_storage.sht_temperature)/1000));
+        genieWriteObject(GENIE_OBJ_GAUGE, 3, (int16_t)(sensor_data_storage.sht_humidity/1000));
+        if(old_sht_temp != sensor_data_storage.sht_temperature)
+        {
+        	old_sht_temp = sensor_data_storage.sht_temperature;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", (float)(sensor_data_storage.sht_temperature/1000.0));
+            genieWriteStr (18, level_str);
+        }
+
+        if(old_sht_hum != sensor_data_storage.sht_humidity)
+        {
+        	old_sht_hum = sensor_data_storage.sht_humidity;
+            memset(level_str, 0x00, sizeof(level_str));
+            sprintf(level_str, "%.2f", (float)(sensor_data_storage.sht_humidity/1000.0));
+            genieWriteStr (19, level_str);
+        }
+
+        voc_state = DecodeVOCLevel(sensor_data_storage.sgp_voc_index);
+		if(voc_state != VOC_NORMAL)
+		{
+        	if(voc_ok)
+        	{
+        		voc_ok = false;
+
+        		if(voc_state == VOC_MEDIUM)
+        		{speech_msg.phrase_number = VOC_MEDIUM_PHRASE;}
+        		else
+        		{speech_msg.phrase_number = VOC_HIGH_PHRASE;}
+
+        		(void)xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 0 );
+        	}
+		}
+
+        temp_state = DecodeTempLevel(sensor_data_storage.sht_temperature/1000);
+        if(temp_state != TEMP_NORMAL)
+        {
+        	if(temp_ok)
+        	{
+        		temp_ok = false;
+
+        		if(temp_state == TEMP_LOW)
+        		{speech_msg.phrase_number = TEMP_LOW_PHRASE;}
+        		else
+        		{speech_msg.phrase_number = TEMP_HIGH_PHRASE;}
+
+        		(void)xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 0 );
+        	}
+        }
+
+        humid_state = DecodeHumidLevel(sensor_data_storage.sht_humidity/1000);
+        if(humid_state != HUMID_NORMAL)
+        {
+        	if(humid_ok)
+        	{
+        		humid_ok = false;
+
+        		if(humid_state == HUMID_LOW)
+        		{speech_msg.phrase_number = HUMID_LOW_PHRASE;}
+        		else
+        		{speech_msg.phrase_number = HUMID_HIGH_PHRASE;}
+
+        		(void)xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 0 );
+        	}
+        }
 	}
 }
 
@@ -541,6 +619,9 @@ static void myGenieEventHandler(void)
   genieDequeueEvent(&Event);
   char msg_str[16] = {0};
   co2status_t co2_state = CO2_UNDEFINED;
+  voc_status_t voc_state = VOC_UNDEFINED;
+  temp_status_t temp_state = TEMP_UNDEFINED;
+  humid_status_t humid_state = HUMID_UNDEFINED;
   speech_t speech_msg;
 
   if (Event.reportObject.cmd == GENIE_REPORT_EVENT)
@@ -553,7 +634,7 @@ static void myGenieEventHandler(void)
     	{genieWriteObject(GENIE_OBJ_FORM, 6, 1);}
 
     	if (Event.reportObject.index == 2)
-    	{genieWriteObject(GENIE_OBJ_FORM, 0, 1);}
+    	{genieWriteObject(GENIE_OBJ_FORM, 6, 1);}
 
     	if (Event.reportObject.index == 4)
     	{genieWriteObject(GENIE_OBJ_FORM, 1, 1);}
@@ -571,7 +652,29 @@ static void myGenieEventHandler(void)
     	{genieWriteObject(GENIE_OBJ_FORM, 4, 1);}
 
     	if (Event.reportObject.index == 3)
-    	{genieWriteObject(GENIE_OBJ_FORM, 2, 1);}
+    	{
+    		genieWriteObject(GENIE_OBJ_FORM, 2, 1);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%.2f", sensor_data_storage.bme_temperature);
+            genieWriteStr (13, msg_str);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%.2f", sensor_data_storage.bme_humidity);
+            genieWriteStr (15, msg_str);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%.2f", sensor_data_storage.bme_pressure/1000);
+            genieWriteStr (12, msg_str);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%.0f", sensor_data_storage.bme_gas_resistance/100000);
+            genieWriteStr (14, msg_str);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%d", sensor_data_storage.bme_gas_index);
+            genieWriteStr (16, msg_str);
+    	}
 
     	if (Event.reportObject.index == 7)
     	{genieWriteObject(GENIE_OBJ_FORM, 5, 1);}
@@ -637,7 +740,29 @@ static void myGenieEventHandler(void)
     	{genieWriteObject(GENIE_OBJ_FORM, 4, 1);}
 
     	if (Event.reportObject.index == 6)
-    	{genieWriteObject(GENIE_OBJ_FORM, 2, 1);}
+    	{
+    		genieWriteObject(GENIE_OBJ_FORM, 2, 1);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%.2f", sensor_data_storage.bme_temperature);
+            genieWriteStr (13, msg_str);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%.2f", sensor_data_storage.bme_humidity);
+            genieWriteStr (15, msg_str);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%.2f", sensor_data_storage.bme_pressure/1000);
+            genieWriteStr (12, msg_str);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%.0f", sensor_data_storage.bme_gas_resistance/100000);
+            genieWriteStr (14, msg_str);
+
+            memset(msg_str, 0x00, sizeof(msg_str));
+            sprintf(msg_str, "%d", sensor_data_storage.bme_gas_index);
+            genieWriteStr (16, msg_str);
+    	}
 
     	if (Event.reportObject.index == 5)
     	{
@@ -684,6 +809,102 @@ static void myGenieEventHandler(void)
 				}
 			}
     	}
+
+    	if (Event.reportObject.index == 19)
+    	{
+			voc_state = DecodeVOCLevel(sensor_data_storage.sgp_voc_index);
+			switch (voc_state)
+			{
+				case VOC_NORMAL:
+				{
+					speech_msg.phrase_number = VOC_NORMAL_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case VOC_MEDIUM:
+				{
+					speech_msg.phrase_number = VOC_MEDIUM_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case VOC_HIGH:
+				{
+					speech_msg.phrase_number = VOC_HIGH_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case VOC_UNDEFINED:
+				{
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+
+			temp_state = DecodeTempLevel(sensor_data_storage.sht_temperature/1000);
+			switch (temp_state)
+			{
+				case TEMP_NORMAL:
+				{
+					speech_msg.phrase_number = TEMP_NORMAL_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case TEMP_LOW:
+				{
+					speech_msg.phrase_number = TEMP_LOW_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case TEMP_HIGH:
+				{
+					speech_msg.phrase_number = TEMP_HIGH_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case TEMP_UNDEFINED:
+				{
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+
+			humid_state = DecodeHumidLevel(sensor_data_storage.sht_humidity/1000);
+			switch (humid_state)
+			{
+				case HUMID_NORMAL:
+				{
+					speech_msg.phrase_number = HUMID_NORMAL_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case HUMID_LOW:
+				{
+					speech_msg.phrase_number = HUMID_LOW_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case HUMID_HIGH:
+				{
+					speech_msg.phrase_number = HUMID_HIGH_PHRASE;
+					xQueueSend(speech_MsgQueue, (void *)&(speech_msg), 100 );
+					break;
+				}
+				case HUMID_UNDEFINED:
+				{
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+    	}
     }
 
     if (Event.reportObject.object == GENIE_OBJ_4DBUTTON)
@@ -715,6 +936,63 @@ static co2status_t DecodeCO2Level(int co2eq_ppm)
 	return CO2_UNDEFINED;
 }
 
+static voc_status_t DecodeVOCLevel(int voc)
+{
+	if(voc >= VOC_LVL_NORMAL && voc < VOC_LVL_MEDIUM)
+	{
+		return VOC_NORMAL;
+	}
+	else if(voc >= VOC_LVL_MEDIUM && voc < VOC_LVL_HIGH)
+	{
+		return VOC_MEDIUM;
+	}
+	else if(voc >= VOC_LVL_HIGH)
+	{
+		return VOC_HIGH;
+	}
+	else
+
+	return VOC_UNDEFINED;
+}
+
+static temp_status_t DecodeTempLevel(int temperature)
+{
+	if(temperature >= TEMP_LVL_NORMAL && temperature < TEMP_LVL_HIGH)
+	{
+		return TEMP_NORMAL;
+	}
+	else if(temperature < TEMP_LVL_NORMAL)
+	{
+		return TEMP_LOW;
+	}
+	else if(temperature >= TEMP_LVL_HIGH)
+	{
+		return TEMP_HIGH;
+	}
+	else
+
+	return TEMP_UNDEFINED;
+}
+
+static humid_status_t DecodeHumidLevel(int humidity)
+{
+	if(humidity >= HUM_LVL_NORMAL && humidity < HUM_LVL_HIGH)
+	{
+		return HUMID_NORMAL;
+	}
+	else if(humidity < HUM_LVL_NORMAL)
+	{
+		return HUMID_LOW;
+	}
+	else if(humidity >= HUM_LVL_HIGH)
+	{
+		return HUMID_HIGH;
+	}
+	else
+
+	return HUMID_UNDEFINED;
+}
+
 void Phrase_Repeat_Callback(TimerHandle_t xTimer)
 {
 	xTimerDelete(phrase_repeat, 100);
@@ -726,10 +1004,25 @@ void Speech_Check_Callback(TimerHandle_t xTimer)
 {
 	xTimerDelete(speech_check, 100);
 	speech_check = NULL;
-	check = true;
+	check_co2 = true;
 }
 
 void Form0_Activate_Callback(TimerHandle_t xTimer)
 {
 	form0_return = true;
+}
+
+void Temp_Reset_Callback(TimerHandle_t xTimer)
+{
+	temp_ok = true;
+}
+
+void VOC_Reset_Callback(TimerHandle_t xTimer)
+{
+	voc_ok = true;
+}
+
+void Humid_Reset_Callback(TimerHandle_t xTimer)
+{
+	humid_ok = true;
 }
