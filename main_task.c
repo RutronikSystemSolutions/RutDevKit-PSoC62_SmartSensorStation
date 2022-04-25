@@ -21,9 +21,16 @@
 
 #define ARDU_BAUD_RATE       		115200
 #define SCOPE_SCALE					0.0042735042735043
+#define WDT_USED
+#define WDT_TIME_OUT_MS             4000
+
+/* WDT object */
+cyhal_wdt_t wdt_obj;
 
 /*4D Systems display uart initialization*/
 static cy_rslt_t ardu_uart_init();
+
+void initialize_wdt(void);
 
 /* UserApiConfig */
 static bool uartAvailHandler(void);
@@ -64,7 +71,6 @@ static UserApiConfig userConfig =
 	.write = uartWriteHandler,
 	.millis = uartGetMillis
 };
-
 
 long ph_rep_id = 1;
 long sp_ch_id = 2;
@@ -187,8 +193,18 @@ void main_task(void *param)
 	humid_flag_reset = xTimerCreate("HumidRst", HUMID_ALARM_REPEAT, pdTRUE, &hum_tim_id, Humid_Reset_Callback);
 	xTimerStart(humid_flag_reset, 100);
 
+	/*Initialize the WDT*/
+#ifdef WDT_USED
+	initialize_wdt();
+#endif
+
 	for(;;)
 	{
+#ifdef WDT_USED
+        /* Reset WDT */
+        cyhal_wdt_kick(&wdt_obj);
+#endif
+
         /*Visi Genie Events*/
         genieDoEvents(true);
 
@@ -689,7 +705,17 @@ static void myGenieEventHandler(void)
     	{genieWriteObject(GENIE_OBJ_FORM, 15, 1);}
 
     	if (Event.reportObject.index == 11)
-    	{genieWriteObject(GENIE_OBJ_FORM, 3, 1);}
+    	{
+    		genieWriteObject(GENIE_OBJ_FORM, 3, 1);
+
+    		memset(msg_str, 0x00, sizeof(msg_str));
+    		sprintf(msg_str, "%d ppm", sensor_data_storage.pas_co2);
+    		genieWriteStr (0, msg_str);
+
+    		memset(msg_str, 0x00, sizeof(msg_str));
+    		sprintf(msg_str, "%d ppm", sensor_data_storage.scd_co2);
+    		genieWriteStr (1, msg_str);
+    	}
 
     	if (Event.reportObject.index == 12)
     	{genieWriteObject(GENIE_OBJ_FORM, 0, 1);}
@@ -1025,4 +1051,18 @@ void VOC_Reset_Callback(TimerHandle_t xTimer)
 void Humid_Reset_Callback(TimerHandle_t xTimer)
 {
 	humid_ok = true;
+}
+
+void initialize_wdt()
+{
+    cy_rslt_t result;
+
+    /* Initialize the WDT */
+    result = cyhal_wdt_init(&wdt_obj, WDT_TIME_OUT_MS);
+
+    /* WDT initialization failed. Stop program execution */
+    if (result != CY_RSLT_SUCCESS)
+    {
+        CY_ASSERT(0);
+    }
 }
