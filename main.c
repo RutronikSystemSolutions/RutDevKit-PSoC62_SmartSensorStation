@@ -1,7 +1,7 @@
 /******************************************************************************
 * File Name:   main.c
 *
-* Description: This is the source code for the RutDevKit-PSoC62_SensorFusion_TTS_Display
+* Description: This is the source code for the RutDevKit-PSoC62_SmartSensorStation
 *              Application for ModusToolbox.
 *
 * Related Document: See README.md
@@ -142,7 +142,7 @@ int main(void)
     if (result != CY_RSLT_SUCCESS)
     {handle_error();}
     printf("\x1b[2J\x1b[;H");
-    printf("RutDevKit-PSoC62 Sensor Fusion Display Application.\r\n");
+    printf("RutDevKit-PSoC62 Smart Sensor Station Application.\r\n");
 
     /*Initialize I2C Master*/
     result = cyhal_i2c_init(&I2C_scb3, ARDU_SDA, ARDU_SCL, NULL);
